@@ -15,26 +15,33 @@ namespace ComicSystem.Controllers
         }
 
         // GET: Reports
-        public IActionResult Index(DateTime startDate, DateTime endDate)
+        public async Task<IActionResult> Index(DateTime? startDate, DateTime? endDate)
         {
-            var report = from r in _context.Rentals
-                         join rd in _context.RentalDetails on r.RentalId equals rd.RentalId
-                         join cb in _context.Comics on rd.ComicId equals cb.ComicId
-                         join c in _context.Customers on r.CustomerId equals c.CustomerId
-                         where r.RentalDate >= startDate && r.RentalDate <= endDate
-                         select new
-                         {
-                             r.RentalId,
-                             r.CustomerId,
-                             r.RentalDate,
-                             r.ReturnDate,
-                             cb.Title,
-                             c.Name,
-                             rd.Quantity,
-                             rd.PricePerDay,
-                             TotalPrice = rd.Quantity * rd.PricePerDay * EF.Functions.DateDiffDay(r.RentalDate, r.ReturnDate)
-                         };
-            return View(report.ToList());
+            if (!startDate.HasValue || !endDate.HasValue || startDate > endDate)
+            {
+                ViewBag.Error = "Please provide valid start and end dates, with start date before end date.";
+                return View(new List<object>());
+            }
+
+            var report = await (from r in _context.Rentals
+                                join rd in _context.RentalDetails on r.RentalId equals rd.RentalId
+                                join cb in _context.Comics on rd.ComicId equals cb.ComicId
+                                join c in _context.Customers on r.CustomerId equals c.CustomerId
+                                where r.RentalDate >= startDate && r.RentalDate <= endDate
+                                select new
+                                {
+                                    r.RentalId,
+                                    r.CustomerId,
+                                    r.RentalDate,
+                                    r.ReturnDate,
+                                    cb.Title,
+                                    c.Name,
+                                    rd.Quantity,
+                                    rd.PricePerDay,
+                                    TotalPrice = rd.Quantity * rd.PricePerDay * Math.Max(1, EF.Functions.DateDiffDay(r.RentalDate, r.ReturnDate ?? DateTime.Now))
+                                }).ToListAsync();
+
+            return View(report);
         }
     }
 }
